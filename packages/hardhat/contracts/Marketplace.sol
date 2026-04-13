@@ -78,6 +78,7 @@ contract Marketplace {
     mapping(address => uint256[]) public sellerProducts;
     mapping(address => uint256[]) public buyerOrders;
     mapping(address => uint256[]) public sellerOrders;
+    mapping(uint256 => uint256) public escrowToOrder;
 
     // ============ Events ============
     event SellerRegistered(
@@ -130,6 +131,11 @@ contract Marketplace {
 
     modifier orderExists(uint256 _orderId) {
         if (orders[_orderId].id == 0) revert Marketplace__OrderNotFound();
+        _;
+    }
+
+    modifier onlyEscrow() {
+        if (msg.sender != address(escrowContract)) revert Marketplace__Unauthorized();
         _;
     }
 
@@ -272,16 +278,17 @@ contract Marketplace {
         uint256 totalAmount = product.price * _quantity;
         if (msg.value != totalAmount) revert Marketplace__InvalidPrice();
 
+        // Create order
+        orderCounter++;
+        orderId = orderCounter;
+
         // Create escrow
         escrowId = escrowContract.createEscrow{value: msg.value}(
             msg.sender,
             product.seller,
-            _productId
+            _productId,
+            orderId
         );
-
-        // Create order
-        orderCounter++;
-        orderId = orderCounter;
 
         orders[orderId] = Order({
             id: orderId,
@@ -299,6 +306,9 @@ contract Marketplace {
         // Update stock
         product.stock -= _quantity;
 
+        // Track escrow to order mapping
+        escrowToOrder[escrowId] = orderId;
+        
         // Track orders
         buyerOrders[msg.sender].push(orderId);
         sellerOrders[product.seller].push(orderId);
@@ -389,8 +399,9 @@ contract Marketplace {
         escrowContract.raiseDispute(order.escrowId);        
     }
 
-    function onDisputeResolved(uint256 _orderId, bool releasedToSeller) external onlyEscrow orderExists(_orderId) {
-        Order storage order = orders[_orderId];
+    function onDisputeResolved(uint256 _escrowId, bool releasedToSeller) external onlyEscrow {
+        uint256 orderId = escrowToOrder[_escrowId];
+        Order storage order = orders[orderId];
         
         OrderStatus oldStatus = order.status;
         if (releasedToSeller) {
@@ -402,7 +413,7 @@ contract Marketplace {
             product.stock += order.quantity;
         }
         
-        emit OrderStatusChanged(_orderId, oldStatus, order.status);
+        emit OrderStatusChanged(orderId, oldStatus, order.status);
     }
 
     // ============ View Functions ============
