@@ -246,18 +246,29 @@ contract Escrow {
             );
             if (!success) revert Escrow__TransferFailed();
         } else {
-            // Refund to buyer
+            // Refund to buyerescrow
             (bool success, ) = payable(escrow.buyer).call{value: escrow.amount}(
                 ""
             );
             if (!success) revert Escrow__TransferFailed();
         }
 
+        Marketplace(marketplace).onDisputeResolved(_escrowId, _releaseToSeller);
+
         emit DisputeResolved(
             _escrowId,
             _releaseToSeller ? EscrowStatus.RELEASED : EscrowStatus.REFUNDED,
             msg.sender
         );
+    }
+
+    /**
+     * @notice Callback function for Marketplace to update order status after dispute resolution
+     * @param _orderId Order ID
+     * @param releasedToSeller If true, order status is RELEASED; if false, REFUNDED
+     */
+    function onDisputeResolved(uint256 _orderId, bool releasedToSeller) external {
+        require(msg.sender == address(escrowContract));
     }
 
     // ============ View Functions ============

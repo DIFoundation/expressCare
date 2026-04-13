@@ -37,12 +37,12 @@ const config: HardhatUserConfig = {
     sepolia: {
       accounts: [PRIVATE_KEY],
       chainId: 11155111,
-      url: ``,
+      url: `https://ethereum-sepolia-rpc.publicnode.com`,
     },
     mainnet: {
       accounts: [PRIVATE_KEY],
       chainId: 1,
-      url: ``,
+      url: `https://ethereum-mainnet.gateway.tatum.io`,
     },
   },
   paths: {

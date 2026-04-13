@@ -13,11 +13,13 @@ contract Marketplace {
     error Marketplace__NotSeller();
     error Marketplace__AlreadySeller();
     error Marketplace__InvalidPrice();
+    error Marketplace__InsufficientStock();
     error Marketplace__ProductNotFound();
     error Marketplace__NotProductOwner();
     error Marketplace__ProductNotActive();
     error Marketplace__OrderNotFound();
     error Marketplace__Unauthorized();
+    error Marketplace__InvalidState();
     error Marketplace__InvalidIPFSHash();
     error Marketplace__EscrowNotSet();
 
@@ -263,7 +265,7 @@ contract Marketplace {
         Product storage product = products[_productId];
 
         if (!product.isActive) revert Marketplace__ProductNotActive();
-        if (product.stock < _quantity) revert Marketplace__InvalidPrice();
+        if (product.stock < _quantity) revert Marketplace__InsufficientStock();
         if (product.seller == msg.sender)
             revert Marketplace__Unauthorized(); // Can't buy own product
 
@@ -315,6 +317,22 @@ contract Marketplace {
     }
 
     /**
+     * @notice Mark order as fulfilled by seller
+     * @param _orderId Order ID to mark as fulfilled
+     */
+    function fulfillOrder(uint256 _orderId) external orderExists(_orderId) {
+        Order storage order = orders[_orderId];
+
+        if (order.seller != msg.sender) revert Marketplace__Unauthorized();
+        if (order.status != OrderStatus.PAID) revert Marketplace__InvalidState();
+
+        OrderStatus oldStatus = order.status;
+        order.status = OrderStatus.FULFILLED;
+
+        emit OrderStatusChanged(_orderId, oldStatus, OrderStatus.FULFILLED);
+    }
+
+    /**
      * @notice Confirm order fulfillment by buyer
      * @param _orderId Order ID to confirm
      */
@@ -324,7 +342,7 @@ contract Marketplace {
         Order storage order = orders[_orderId];
 
         if (order.buyer != msg.sender) revert Marketplace__Unauthorized();
-        if (order.status != OrderStatus.PAID) revert Marketplace__Unauthorized();
+        if (order.status != OrderStatus.FULFILLED) revert Marketplace__Unauthorized();
 
         // Release escrow funds to seller
         escrowContract.releasePayment(order.escrowId);
@@ -357,6 +375,34 @@ contract Marketplace {
         order.status = OrderStatus.CANCELLED;
 
         emit OrderStatusChanged(_orderId, oldStatus, OrderStatus.CANCELLED);
+    }
+
+    /**
+     * @notice Raise dispute for an order
+     * @param _orderId Order ID to raise dispute for
+     */
+    function raiseDispute(uint256 _orderId) external orderExists(_orderId) {
+        Order storage order = orders[_orderId];
+        if (msg.sender != order.buyer && msg.sender != order.seller) 
+            revert Marketplace__Unauthorized();
+        
+        escrowContract.raiseDispute(order.escrowId);        
+    }
+
+    function onDisputeResolved(uint256 _orderId, bool releasedToSeller) external onlyEscrow orderExists(_orderId) {
+        Order storage order = orders[_orderId];
+        
+        OrderStatus oldStatus = order.status;
+        if (releasedToSeller) {
+            order.status = OrderStatus.COMPLETED;
+        } else {
+            order.status = OrderStatus.REFUNDED;
+            // Restore stock since refunded
+            Product storage product = products[order.productId];
+            product.stock += order.quantity;
+        }
+        
+        emit OrderStatusChanged(_orderId, oldStatus, order.status);
     }
 
     // ============ View Functions ============
