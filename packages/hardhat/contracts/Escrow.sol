@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {FHE, euint32, ebool, externalEuint32} from "@fhevm/solidity/lib/FHE.sol";
+import {FHE, euint32} from "@fhevm/solidity/lib/FHE.sol";
 import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
 interface IMarketplace {
@@ -26,6 +26,7 @@ contract Escrow is ZamaEthereumConfig {
     error Escrow__TransferFailed();
     error Escrow__ZeroAddress();
     error Escrow__InvalidAmount();
+    error Marketplace__AlreadySet();
 
     // ============ Types ============
     enum EscrowStatus {
@@ -55,6 +56,7 @@ contract Escrow is ZamaEthereumConfig {
     uint256 public escrowCounter;
     address public owner;
     address public marketplace;
+    address public auctionContract;
     uint256 public constant DISPUTE_WINDOW = 7 days;
 
     mapping(uint256 => EscrowData) public escrows;
@@ -92,6 +94,7 @@ contract Escrow is ZamaEthereumConfig {
     event MarketplaceSet(address indexed marketplace);
     event ownershipTransfered(address indexed owner);
     event emergencyWithdrawn(address indexed to, uint256 amount);
+    event AuctionContractSet(address indexed auction);
 
     // ============ Modifiers ============
     modifier onlyOwner() {
@@ -99,8 +102,9 @@ contract Escrow is ZamaEthereumConfig {
         _;
     }
 
-    modifier onlyMarketplace() {
-        if (msg.sender != marketplace) revert Escrow__NotAuthorized();
+    modifier onlyAuthorized() {
+        if (msg.sender != marketplace && msg.sender != auctionContract)
+            revert Escrow__NotAuthorized();
         _;
     }
 
@@ -128,7 +132,7 @@ contract Escrow is ZamaEthereumConfig {
         address _seller,
         uint256 _productId,
         uint256 _orderId
-    ) external payable onlyMarketplace returns (uint256) {
+    ) external payable onlyAuthorized returns (uint256) {
         if (_buyer == address(0) || _seller == address(0))
             revert Escrow__ZeroAddress();
         if (msg.value == 0) revert Escrow__InvalidAmount();
@@ -352,6 +356,12 @@ contract Escrow is ZamaEthereumConfig {
         if (_marketplace == address(0)) revert Escrow__ZeroAddress();
         marketplace = _marketplace;
         emit MarketplaceSet(_marketplace);
+    }
+
+    function setAuctionContract(address _auction) external onlyOwner {
+        if (_auction == address(0)) revert Escrow__ZeroAddress();
+        auctionContract = _auction;
+        emit AuctionContractSet(_auction);
     }
 
     /**
