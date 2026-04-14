@@ -2,7 +2,8 @@ import { wagmiConnectors } from "./wagmiConnectors";
 import { Chain, createClient, fallback, http } from "viem";
 import { hardhat, mainnet } from "viem/chains";
 import { createConfig } from "wagmi";
-import scaffoldConfig, { ScaffoldConfig } from "~~/scaffold.config";
+import scaffoldConfig from "~~/scaffold.config";
+import { getEtherscanHttpUrl } from "~~/utils/helper/networks";
 
 const { targetNetworks } = scaffoldConfig;
 
@@ -17,6 +18,13 @@ export const wagmiConfig = createConfig({
   ssr: true,
   client: ({ chain }) => {
     let rpcFallbacks = [http()];
+    
+    // Add Etherscan RPC if API key is available
+    const etherscanUrl = getEtherscanHttpUrl(chain.id);
+    if (etherscanUrl && scaffoldConfig.etherscanKey) {
+      rpcFallbacks.unshift(http(`${etherscanUrl}?apikey=${scaffoldConfig.etherscanKey}`));
+    }
+    
     return createClient({
       chain,
       transport: fallback(rpcFallbacks),

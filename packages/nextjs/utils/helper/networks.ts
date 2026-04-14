@@ -12,34 +12,39 @@ type ChainAttributes = {
 export type ChainWithAttributes = chains.Chain & Partial<ChainAttributes>;
 export type AllowedChainIds = (typeof scaffoldConfig.targetNetworks)[number]["id"];
 
-// Mapping of chainId to RPC chain name an format followed by alchemy and infura
-export const RPC_CHAIN_NAMES: Record<number, string> = {
-  [chains.mainnet.id]: "eth-mainnet",
-  [chains.goerli.id]: "eth-goerli",
-  [chains.sepolia.id]: "eth-sepolia",
-  [chains.optimism.id]: "opt-mainnet",
-  [chains.optimismGoerli.id]: "opt-goerli",
-  [chains.optimismSepolia.id]: "opt-sepolia",
-  [chains.arbitrum.id]: "arb-mainnet",
-  [chains.arbitrumGoerli.id]: "arb-goerli",
-  [chains.arbitrumSepolia.id]: "arb-sepolia",
-  [chains.polygon.id]: "polygon-mainnet",
-  [chains.polygonMumbai.id]: "polygon-mumbai",
-  [chains.polygonAmoy.id]: "polygon-amoy",
-  [chains.astar.id]: "astar-mainnet",
-  [chains.polygonZkEvm.id]: "polygonzkevm-mainnet",
-  [chains.polygonZkEvmTestnet.id]: "polygonzkevm-testnet",
-  [chains.base.id]: "base-mainnet",
-  [chains.baseGoerli.id]: "base-goerli",
-  [chains.baseSepolia.id]: "base-sepolia",
-  [chains.celo.id]: "celo-mainnet",
-  [chains.celoSepolia.id]: "celo-sepolia",
+// Mapping of chainId to Etherscan API names
+export const ETHERSCAN_CHAIN_NAMES: Record<number, string> = {
+  [chains.mainnet.id]: "api",
+  [chains.goerli.id]: "api-goerli",
+  [chains.sepolia.id]: "api-sepolia",
+  [chains.optimism.id]: "api-optimism",
+  [chains.optimismGoerli.id]: "api-optimism-goerli",
+  [chains.optimismSepolia.id]: "api-optimism-sepolia",
+  [chains.arbitrum.id]: "api-arbitrum",
+  [chains.arbitrumGoerli.id]: "api-arbitrum-goerli",
+  [chains.arbitrumSepolia.id]: "api-arbitrum-sepolia",
+  [chains.polygon.id]: "api-polygon",
+  [chains.polygonMumbai.id]: "api-testnet-polygon",
+  [chains.polygonAmoy.id]: "api-amoy",
+  [chains.astar.id]: "api-astar",
+  [chains.polygonZkEvm.id]: "api-zkevm",
+  [chains.polygonZkEvmTestnet.id]: "api-testnet-zkevm",
+  [chains.base.id]: "api-base",
+  [chains.baseGoerli.id]: "api-goerli-base",
+  [chains.baseSepolia.id]: "api-sepolia-base",
+  [chains.celo.id]: "api-celo",
+  [chains.celoSepolia.id]: "api-celo-alfajores",
 };
 
-export const getAlchemyHttpUrl = (chainId: number) => {
-  return scaffoldConfig.alchemyApiKey && RPC_CHAIN_NAMES[chainId]
-    ? `https://${RPC_CHAIN_NAMES[chainId]}.g.alchemy.com/v2/${scaffoldConfig.alchemyApiKey}`
-    : undefined;
+export const getEtherscanHttpUrl = (chainId: number) => {
+  const chainName = ETHERSCAN_CHAIN_NAMES[chainId];
+  if (!chainName) return undefined;
+  
+  // log chain name to get it quickly incase needed
+  console.log('chain name', chainName)
+  return scaffoldConfig.etherscanKey 
+    ? `https://api.etherscan.io/v2/api`
+    : `https://api.etherscan.io/v2/api`;
 };
 
 export const NETWORKS_EXTRA_DATA: Record<string, ChainAttributes> = {
