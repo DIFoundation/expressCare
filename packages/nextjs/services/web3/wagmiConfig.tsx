@@ -22,7 +22,7 @@ export const wagmiConfig = createConfig({
     // Add Etherscan RPC if API key is available
     const etherscanUrl = getEtherscanHttpUrl(chain.id);
     if (etherscanUrl && scaffoldConfig.etherscanKey) {
-      rpcFallbacks.unshift(http(`${etherscanUrl}?apikey=${scaffoldConfig.etherscanKey}`));
+      rpcFallbacks.unshift(http(`${etherscanUrl}?apikey=${scaffoldConfig.etherscanKey}&chainid=${chain.id}`));
     }
     
     return createClient({

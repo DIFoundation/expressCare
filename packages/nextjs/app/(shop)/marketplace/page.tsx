@@ -1,116 +1,251 @@
-"use client";
+'use client';
 
-import { useAccount } from "wagmi";
-import { ProductCard } from "~~/components/marketplace/ProductCard";
-import { useMarketplace } from "~~/hooks/useMarketplace";
-import { formatPrice } from "~~/lib/format";
+import { useState } from 'react';
+import { useMarketplace } from '~~/hooks/useMarketplace';
+import { SearchParams, ProductFilters } from '~~/types';
+import { SearchBar } from '~~/components/marketplace/SearchBar';
+import { FilterSidebar } from '~~/components/marketplace/FilterSidebar';
+import { SortDropdown } from '~~/components/marketplace/SortDropdown';
+import { ProductCard } from '~~/components/marketplace/ProductCard';
+import { CartIcon } from '~~/components/cart/CartIcon';
+import { useRouter } from 'next/navigation';
 
 export default function MarketplacePage() {
-  const { isConnected } = useAccount();
-  const { reads } = useMarketplace();
+  const { reads: {useProductCount, useProducts} } = useMarketplace();
+  const router = useRouter();
 
-  // Mock data for demonstration
-  const mockProducts = [
-    {
-      id: BigInt(1),
-      seller: "0x742d35Cc6634C0532925a3b844Bc454e4438f3e",
-      name: "Premium Headphones",
-      description: "High-quality wireless headphones with noise cancellation and premium sound quality.",
-      price: BigInt("150000000000000000000"), // 0.15 ETH
-      stock: BigInt(25),
-      isActive: true,
-      createdAt: BigInt(Date.now()),
-      ipfsHash: "QmExample123...",
-    },
-    {
-      id: BigInt(2),
-      seller: "0x8ba1f109551bD43280301767609c983f0412a837",
-      name: "Smart Watch",
-      description: "Feature-rich smartwatch with health tracking and notifications.",
-      price: BigInt("200000000000000000000"), // 0.2 ETH
-      stock: BigInt(15),
-      isActive: true,
-      createdAt: BigInt(Date.now()),
-      ipfsHash: "QmExample456...",
-    },
-  ];
+  const productCount = useProductCount();
 
-  const handlePurchase = (product: any) => {
-    // TODO: Implement purchase logic
-    console.log("Purchasing product:", product);
+  const featuredProductIds = productCount
+    ? Array.from({ length: Number(productCount) }, (_, i) => BigInt(i + 1))
+    : [];
+
+  const { data: featuredProducts, isLoading } = useProducts(featuredProductIds);
+  
+  // Search and filter state
+  const [searchParams, setSearchParams] = useState<SearchParams>({
+    query: '',
+    filters: {
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    },
+  });
+  
+  const [filters, setFilters] = useState<ProductFilters>({
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+  });
+  
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Derive filtered products directly from state
+  const filteredProducts = (() => {
+    let filtered = [...(featuredProducts || [])];
+
+    // Apply search query
+    if (searchParams.query) {
+      const query = searchParams.query.toLowerCase();
+      filtered = filtered.filter(product =>
+        product.name.toLowerCase().includes(query) ||
+        product.description.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply category filter
+    if (filters.category) {
+      filtered = filtered.filter(product =>
+        // Mock category assignment - would come from product metadata
+        product.id.toString() === filters.category
+      );
+    }
+
+    // Apply price range filter
+    if (filters.minPrice) {
+      const minPrice = BigInt(parseFloat(filters.minPrice) * 1e18);
+      filtered = filtered.filter(product => product.price >= minPrice);
+    }
+    if (filters.maxPrice) {
+      const maxPrice = BigInt(parseFloat(filters.maxPrice) * 1e18);
+      filtered = filtered.filter(product => product.price <= maxPrice);
+    }
+
+    // Apply stock filter
+    if (filters.inStock) {
+      filtered = filtered.filter(product => product.stock > 0);
+    }
+
+    // Apply sorting
+    if (filters.sortBy) {
+      filtered.sort((a, b) => {
+        let comparison = 0;
+        
+        switch (filters.sortBy) {
+          case 'name':
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case 'price':
+            comparison = a.price > b.price ? 1 : a.price < b.price ? -1 : 0;
+            break;
+          case 'createdAt':
+            comparison = a.createdAt > b.createdAt ? 1 : a.createdAt < b.createdAt ? -1 : 0;
+            break;
+          case 'stock':
+            comparison = a.stock > b.stock ? 1 : a.stock < b.stock ? -1 : 0;
+            break;
+        }
+        
+        return filters.sortOrder === 'desc' ? -comparison : comparison;
+      });
+    }
+
+    return filtered;
+  })();
+
+  const handleSearchChange = (params: SearchParams) => {
+    setSearchParams(params);
   };
 
-  if (!isConnected) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="max-w-md w-full mx-4">
-          <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-            <div className="mb-6">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 text-2xl font-bold">
-                🛍
-              </div>
+  const handleFiltersChange = (newFilters: ProductFilters) => {
+    setFilters(newFilters);
+  };
+
+  const handleSortChange = (sortBy: 'name' | 'price' | 'createdAt' | 'stock', sortOrder: 'asc' | 'desc') => {
+    setFilters({ ...filters, sortBy, sortOrder });
+  };
+
+  const handleProductView = (productId: bigint) => {
+    router.push(`/product/${productId.toString()}`);
+  };
+
+  // Category pills for quick filtering
+  const categories = [
+    { id: 'electronics', name: 'Electronics', icon: '📱' },
+    { id: 'fashion', name: 'Fashion', icon: '👕' },
+    { id: 'nfts', name: 'NFTs', icon: '🎨' },
+    { id: 'gaming', name: 'Gaming', icon: '🎮' },
+  ];
+
+  return (
+    <div className="min-h-screen">
+      {/* Header */}
+      <div className="bg-gray-100 dark:bg-gray-800 shadow-sm border-b dark:border-gray-500 rounded-xl">
+        <div className="max-w-[1500px] mx-auto px-4 py-4">
+          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+            {/* Search Bar */}
+            <div className="flex-1 max-w-2xl">
+              <SearchBar
+                searchParams={searchParams}
+                onSearchChange={handleSearchChange}
+              />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Connect Wallet</h1>
-            <p className="text-gray-600 mb-8">Connect your wallet to browse the marketplace</p>
-            <div className="text-sm text-gray-500">
-              Connect using MetaMask, WalletConnect, or other supported wallets
+
+            {/* Right Controls */}
+            <div className="flex items-center gap-4">
+              <SortDropdown
+                sortBy={filters.sortBy || 'createdAt'}
+                sortOrder={filters.sortOrder || 'desc'}
+                onSortChange={handleSortChange}
+              />
+              <CartIcon />
             </div>
+          </div>
+
+          {/* Category Pills */}
+          <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
+            <button
+              onClick={() => handleFiltersChange({ ...filters, category: undefined })}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                !filters.category
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              All Products
+            </button>
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => handleFiltersChange({ ...filters, category: category.id })}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-2 ${
+                  filters.category === category.id
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                <span>{category.icon}</span>
+                {category.name}
+              </button>
+            ))}
           </div>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Marketplace</h1>
-          <p className="text-xl text-gray-600">Discover amazing products from trusted sellers</p>
-        </div>
+      {/* Main Content */}
+      <div className="max-w-[1500px] mx-auto px-4 py-6">
+        <div className="flex gap-6">
+          {/* Sidebar */}
+          <FilterSidebar
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            isOpen={isSidebarOpen}
+            onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+          />
 
-        {/* Filters Bar */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-6">
-          <div className="flex flex-wrap gap-4 items-center">
-            <select className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-              <option>All Categories</option>
-              <option>Electronics</option>
-              <option>Fashion</option>
-              <option>Home & Garden</option>
-            </select>
-            
-            <select className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-              <option>Sort by: Featured</option>
-              <option>Price: Low to High</option>
-              <option>Price: High to Low</option>
-              <option>Newest First</option>
-            </select>
-            
-            <input
-              type="text"
-              placeholder="Search products..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
+          {/* Product Grid */}
+          <div className="flex-1">
+            {/* Results Header */}
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Marketplace</h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found
+                </p>
+              </div>
+            </div>
+
+            {/* Products */}
+            {isLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600 dark:text-gray-400">Loading marketplace...</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
+                <span className="text-6xl mb-4 block">🔍</span>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                  No products found
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  Try adjusting your filters or search terms
+                </p>
+                <button
+                  onClick={() => handleFiltersChange({})}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id.toString()}
+                    product={product}
+                    onViewDetails={handleProductView}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Load More (for infinite scroll) */}
+            {filteredProducts.length > 0 && (
+              <div className="text-center mt-12">
+                <button className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-8 py-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium">
+                  Load More Products
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {mockProducts.map((product) => (
-            <ProductCard
-              key={product.id.toString()}
-              product={product}
-              onPurchase={handlePurchase}
-            />
-          ))}
-        </div>
-
-        {/* Load More */}
-        <div className="text-center mt-8">
-          <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-            Load More Products
-          </button>
         </div>
       </div>
     </div>

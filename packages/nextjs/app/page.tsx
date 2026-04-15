@@ -14,11 +14,7 @@ export default function LandingPage() {
     ? Array.from({ length: Math.min(Number(productCount), 6) }, (_, i) => BigInt(i + 1))
     : [];
 
-  console.log('featuredProductIds', featuredProductIds)
-
   const { data: featuredProducts, isLoading } = useProducts(featuredProductIds);
-
-  console.log('featuredProducts', featuredProducts)
 
   const categories = [
     { name: 'Electronics', icon: '📱', count: 24 },
@@ -55,7 +51,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen pt-20 transition-colors">
+    <div className="min-h-screen transition-colors">
       {/* Hero Section */}
       <section className="bg-gradient-to-l from-gray-950 to-gray-900 text-white rounded-3xl">
         <div className="max-w-7xl mx-auto px-4 py-20">
@@ -80,7 +76,7 @@ export default function LandingPage() {
                   Explore Marketplace 
                   {/* <ArrowUpRight className="ml-2" /> */}
                   {/* ArrowUpRight SVG */}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-arrow-up-right ml-2" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-up-right ml-2" aria-hidden="true">
                     <path d="M7 17 17 7"></path>
                     <path d="M7 7h10v10"></path>
                   </svg>

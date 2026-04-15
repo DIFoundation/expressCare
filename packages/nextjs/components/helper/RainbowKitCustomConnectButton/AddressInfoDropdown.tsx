@@ -31,6 +31,12 @@ export const AddressInfoDropdown = ({ address, ensAvatar, displayName }: Address
 
   useOutsideClick(dropdownRef, closeDropdown);
 
+  const userNavigation = [
+    { name: "Profile", path: "/profile", onClick: () => { "/profile" } },
+    { name: "Settings", path: "/settings", onClick: () => { "/settings" } },
+    { name: "Sign Out", path: "#", onClick: () => { } },
+  ];
+
   return (
     <>
       <details ref={dropdownRef} className="dropdown dropdown-end leading-3">
@@ -41,6 +47,14 @@ export const AddressInfoDropdown = ({ address, ensAvatar, displayName }: Address
         </summary>
         <ul className="dropdown-content menu z-2 p-2 mt-2 shadow-center shadow-accent bg-base-200 rounded-box gap-1">
           <NetworkOptions hidden={!selectingNetwork} />
+          {userNavigation.map((item) => (
+            <button
+              key={item.name}
+              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              {item.name}
+            </button>
+          ))}
           {allowedNetworks.length > 1 ? (
             <li className={selectingNetwork ? "hidden" : ""}>
               <button
