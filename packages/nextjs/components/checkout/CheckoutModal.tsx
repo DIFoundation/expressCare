@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCart } from '@/hooks/useCart';
-import { useConnection } from 'wagmi';
-import { ConnectWallet } from '@/components/auth/ConnectWallet';
+import { useCart } from '~~/hooks/useCart';
+import { useAccount } from 'wagmi';
 import { MapPin, Lock } from 'lucide-react';
-import { useCreateOrder } from '@/hooks/useMarketplace';
+import { useMarketplace } from '~~/hooks/useMarketplace';
+import { RainbowKitCustomConnectButton } from '../helper';
 // import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 
@@ -22,8 +22,8 @@ import { useCreateOrder } from '@/hooks/useMarketplace';
 
 export default function CheckoutModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { cart, clearCart, formatPrice } = useCart();
-  const { isConnected } = useConnection();
-  const { createOrder, isLoading, isConfirming, isSuccess, isError } = useCreateOrder();
+  const { isConnected } = useAccount();
+  const { writes: { createOrder,}, tx: { isSuccess, hash, isPending} } = useMarketplace();
   
   const [shippingAddress, setShippingAddress] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -36,7 +36,7 @@ export default function CheckoutModal({ isOpen, onClose }: { isOpen: boolean; on
 
   // Handle successful order completion
   useEffect(() => {
-    if (ordersCreated && isSuccess && !isConfirming) {
+    if (ordersCreated && isSuccess) {
       clearCart();
       onClose();
       // SuccessAnimation();
@@ -44,16 +44,16 @@ export default function CheckoutModal({ isOpen, onClose }: { isOpen: boolean; on
       setOrdersCreated(false);
       setIsProcessing(false);
     }
-  }, [isSuccess, isConfirming, ordersCreated, clearCart, onClose]);
+  }, [isSuccess, ordersCreated, clearCart, onClose]);
 
   // Handle transaction errors
   useEffect(() => {
-    if (ordersCreated && isError) {
-      alert('Transaction failed. Please try again.');
+    if (ordersCreated && isPending) {
+      alert('Transaction pending. Please wait.');
       setOrdersCreated(false);
       setIsProcessing(false);
     }
-  }, [isError, ordersCreated]);
+  }, [isPending, ordersCreated]);
 
   const handleCreateOrder = async () => {
     if (!isConnected || !shippingAddress || cart.items.length === 0) return;
@@ -63,12 +63,12 @@ export default function CheckoutModal({ isOpen, onClose }: { isOpen: boolean; on
     try {
       // Create orders for each cart item
       for (const item of cart.items) {
-        await createOrder(
-          item.productId,
-          item.quantity,
+        await createOrder({
+          productId: item.productId,
+          quantity: BigInt(item.quantity),
           shippingAddress,
-          item.product.price * BigInt(item.quantity)
-        );
+          value: item.product.price * BigInt(item.quantity)
+        });
       }
       setOrdersCreated(true);
     } catch (error) {
@@ -167,7 +167,7 @@ export default function CheckoutModal({ isOpen, onClose }: { isOpen: boolean; on
                   
                   {!isConnected ? (
                     <div className="text-center py-8">
-                      <ConnectWallet />
+                      <RainbowKitCustomConnectButton />
                       <p className="text-sm text-gray-600 mt-3">
                         Connect your wallet to proceed
                       </p>
@@ -232,10 +232,10 @@ export default function CheckoutModal({ isOpen, onClose }: { isOpen: boolean; on
               
               <button
                 onClick={handleCreateOrder}
-                disabled={isProcessing || isLoading || isConfirming || !isConnected || !shippingAddress}
+                disabled={isProcessing || isPending || !isConnected || !shippingAddress}
                 className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors font-medium"
               >
-                {isProcessing || isLoading || isConfirming ? 'Processing...' : `Pay ${formatPrice(total)} CELO`}
+                {isProcessing || isPending ? 'Processing...' : `Pay ${formatPrice(total)} CELO`}
               </button>
             </div>
           </div>

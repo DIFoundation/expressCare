@@ -32,13 +32,13 @@ export const CartContext = React.createContext<{
 
 // Custom hook to fetch product by ID
 export function useProductFetcher() {
-  const { allProducts, loadingAllProducts } = useMarketplace();
+  const { reads: { useProducts} } = useMarketplace();
   
   const product = (productId: bigint) => {
-    return allProducts.find(p => p.id === productId);
+    return useProducts([productId]).data?.find(p => p.id === productId);
   };
   
-  return { product, isLoading: loadingAllProducts };
+  return { product, isLoading: useProducts([BigInt(0)]).isLoading };
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {

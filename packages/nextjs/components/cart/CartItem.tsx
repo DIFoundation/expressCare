@@ -1,8 +1,8 @@
 'use client';
  
-import { useCart } from '@/hooks/useCart';
+import { useCart } from '~~/hooks/useCart';
 import { Address } from 'viem';
-import { CartItem as CartItemType } from '@/types';
+import { CartItem as CartItemType } from '~~/types';
  
 export function CartItem({ item, onRemove, onUpdateQuantity }: { 
   item: CartItemType; 

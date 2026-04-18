@@ -13,20 +13,25 @@ const compat = new FlatCompat({
 export default defineConfig([
   {
     plugins: {
-      prettier: prettierPlugin,
+      // prettier: prettierPlugin,
     },
-    extends: compat.extends("next/core-web-vitals", "next/typescript", "prettier"),
+    extends: compat.extends(
+      "next/core-web-vitals", 
+      "next/typescript", 
+      // "prettier"
+    ),
 
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/ban-ts-comment": "off",
+      "@typescript-eslint/no-unused-vars": "off",
 
-      "prettier/prettier": [
-        "warn",
-        {
-          endOfLine: "auto",
-        },
-      ],
+      // "prettier/prettier": [
+      //   "warn",
+      //   {
+      //     endOfLine: "auto",
+      //   },
+      // ],
     },
   },
 ]);

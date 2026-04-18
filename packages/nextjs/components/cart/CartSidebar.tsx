@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useCart } from '@/hooks/useCart';
-import { useConnection } from 'wagmi';
-import { ConnectWallet } from '@/components/auth/ConnectWallet';
+import { useCart } from '~~/hooks/useCart';
+import { useAccount } from 'wagmi';
 import { CartItem } from './CartItem';
+import { RainbowKitCustomConnectButton } from '../helper';
 
 export function CartSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { cart, removeFromCart, updateQuantity, clearCart, formatPrice } = useCart();
-  const { isConnected } = useConnection();
+  const { isConnected } = useAccount();
   
   const [showCheckout, setShowCheckout] = useState(false);
 
@@ -112,7 +112,7 @@ export function CartSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () 
               <div className="space-y-3">
                 {!isConnected ? (
                   <div className="text-center">
-                    <ConnectWallet />
+                    <RainbowKitCustomConnectButton />
                     <p className="text-xs text-gray-600 mt-2">
                       Connect wallet to checkout
                     </p>

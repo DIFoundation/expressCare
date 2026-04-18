@@ -1,6 +1,6 @@
 "use client";
 
-import { Order } from "~~/types";
+import { Order, OrderStatus } from "~~/types";
 
 interface OrderCardProps {
   order: Order;
@@ -10,19 +10,19 @@ interface OrderCardProps {
 }
 
 export const OrderCard = ({ order, onConfirm, onCancel, onFulfill }: OrderCardProps) => {
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: OrderStatus) => {
     switch (status) {
-      case "PENDING":
+      case OrderStatus.Pending:
         return "text-yellow-600 bg-yellow-100";
-      case "PAID":
+      case OrderStatus.Paid:
         return "text-blue-600 bg-blue-100";
-      case "FULFILLED":
+      case OrderStatus.Fulfilled:
         return "text-purple-600 bg-purple-100";
-      case "COMPLETED":
+      case OrderStatus.Completed:
         return "text-green-600 bg-green-100";
-      case "REFUNDED":
+      case OrderStatus.Refunded:
         return "text-red-600 bg-red-100";
-      case "CANCELLED":
+      case OrderStatus.Cancelled:
         return "text-gray-600 bg-gray-100";
       default:
         return "text-gray-600 bg-gray-100";
@@ -34,9 +34,28 @@ export const OrderCard = ({ order, onConfirm, onCancel, onFulfill }: OrderCardPr
     return priceInEth.toFixed(4);
   };
 
-  const canConfirm = order.status === "FULFILLED" && onConfirm;
-  const canCancel = order.status === "PAID" && onCancel;
-  const canFulfill = order.status === "PAID" && onFulfill;
+  const getStatusDisplay = (status: OrderStatus) => {
+    switch (status) {
+      case OrderStatus.Pending:
+        return "PENDING";
+      case OrderStatus.Paid:
+        return "PAID";
+      case OrderStatus.Fulfilled:
+        return "FULFILLED";
+      case OrderStatus.Completed:
+        return "COMPLETED";
+      case OrderStatus.Refunded:
+        return "REFUNDED";
+      case OrderStatus.Cancelled:
+        return "CANCELLED";
+      default:
+        return "UNKNOWN";
+    }
+  };
+
+  const canConfirm = order.status === OrderStatus.Fulfilled && onConfirm;
+  const canCancel = order.status === OrderStatus.Paid && onCancel;
+  const canFulfill = order.status === OrderStatus.Paid && onFulfill;
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -47,11 +66,11 @@ export const OrderCard = ({ order, onConfirm, onCancel, onFulfill }: OrderCardPr
             Order #{order.id}
           </h3>
           <p className="text-sm text-gray-500">
-            {new Date(order.createdAt * 1000).toLocaleDateString()}
+            {new Date(Number(order.createdAt) * 1000).toLocaleDateString()}
           </p>
         </div>
         <div className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-          {order.status}
+          {getStatusDisplay(order.status)}
         </div>
       </div>
 
@@ -67,7 +86,7 @@ export const OrderCard = ({ order, onConfirm, onCancel, onFulfill }: OrderCardPr
         </div>
         <div className="flex justify-between">
           <span className="text-gray-600">Total Amount:</span>
-          <span className="font-bold text-lg">{formatPrice(order.totalAmount)} ETH</span>
+          <span className="font-bold text-lg">{formatPrice(order.totalAmount.toString())} ETH</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-600">Escrow ID:</span>
@@ -87,7 +106,7 @@ export const OrderCard = ({ order, onConfirm, onCancel, onFulfill }: OrderCardPr
       <div className="flex gap-3">
         {canFulfill && (
           <button
-            onClick={() => onFulfill(order.id)}
+            onClick={() => onFulfill(Number(order.id))}
             className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
           >
             Mark as Fulfilled
@@ -96,7 +115,7 @@ export const OrderCard = ({ order, onConfirm, onCancel, onFulfill }: OrderCardPr
         
         {canConfirm && (
           <button
-            onClick={() => onConfirm(order.id)}
+            onClick={() => onConfirm(Number(order.id))}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
             Confirm Receipt
@@ -105,7 +124,7 @@ export const OrderCard = ({ order, onConfirm, onCancel, onFulfill }: OrderCardPr
         
         {canCancel && (
           <button
-            onClick={() => onCancel(order.id)}
+            onClick={() => onCancel(Number(order.id))}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
             Cancel Order

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ProductFilters, Category } from '@/types';
+import { ProductFilters, Category } from '~~/types';
 
 interface FilterSidebarProps {
   filters: ProductFilters;

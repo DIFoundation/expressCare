@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ProductSortBy } from '@/types';
+import { ProductSortBy } from '~~/types';
 
 interface SortDropdownProps {
   sortBy: ProductSortBy;

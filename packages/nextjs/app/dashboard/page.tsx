@@ -16,8 +16,12 @@ export default function Dashboard() {
   const { reads: { useIsSeller, useSeller, useSellerProducts, useBuyerOrders, useSellerOrders, useProductCount, useProducts, useOwner: useMarketplaceOwner } } = useMarketplaceHook();
   const { reads: { useBuyerEscrows, useSellerEscrows, useOwner: useEscrowOwner } } = useEscrowHook();
 
-  const userRole = useMarketplaceOwner().data === address && useEscrowOwner().data === address 
-    ? 'ADMIN' : (useIsSeller(address as Address)?.data === true) 
+  const marketplaceOwner = useMarketplaceOwner();
+  const escrowOwner = useEscrowOwner();
+  const isSeller = useIsSeller(address as Address);
+
+  const userRole = marketplaceOwner.data === address && escrowOwner.data === address 
+    ? 'ADMIN' : (isSeller.data === true) 
     ? 'SELLER' : 'BUYER';
   const seller = useSeller(address as Address)
   const sellerProducts = useSellerProducts(address as Address)
@@ -38,7 +42,7 @@ export default function Dashboard() {
   const getRoleTabs = () => {
     switch (userRole) {
       case 'ADMIN':
-        return ['escrows', 'disputes', 'seller', 'orders', 'settings', 'emergency'];
+        return ['escrows', 'disputes', 'sellers', 'orders', 'settings', 'emergency'];
       case 'SELLER':
         return ['products', 'orders', 'escrows', 'store'];
       case 'BUYER':
@@ -90,11 +94,6 @@ export default function Dashboard() {
           <SellerDashboard
             activeTab={activeTab}
             isSeller={true}
-            seller={seller}
-            sellerProducts={sellerProducts}
-            sellerOrders={sellerOrders}
-            sellerEscrows={sellerEscrows}
-            allProducts={allProducts}
           />
         );
       case 'BUYER':

@@ -1,18 +1,15 @@
 'use client';
 
-import { formatEther } from 'viem';
-import { Product, Seller } from '~~/types'
+import { useState } from 'react';
+import { Address, formatEther } from 'viem';
+import { useAccount } from 'wagmi';
+import { Product, Seller, OrderStatus, EscrowStatus } from '~~/types'
 import { useEscrow } from '~~/hooks/useEscrow';
 import { useMarketplace as useMarketplaceHook } from '~~/hooks/useMarketplace';
 
 interface SellerDashboardProps {
   activeTab: string;
   isSeller: boolean;
-  seller: Seller;
-  sellerProducts: any[];
-  sellerOrders: any[];
-  sellerEscrows: any[];
-  allProducts: any[];
 }
 
 const StatCard = ({ title, value, change, icon }: { title: string; value: string; change?: string; icon: string }) => (
@@ -34,147 +31,535 @@ const StatCard = ({ title, value, change, icon }: { title: string; value: string
   </div>
 );
 
-export function SellerDashboard({ activeTab,
-  isSeller,
-  seller,
-  sellerProducts,
-  sellerOrders,
-  sellerEscrows,
-  allProducts
-}: SellerDashboardProps) {
+export function SellerDashboard({ activeTab, isSeller }: SellerDashboardProps) {
+  const { address } = useAccount();
+  const [loading, setLoading] = useState(false);
+  const [productName, setProductName] = useState('');
+  const [productDescription, setProductDescription] = useState('');
+  const [productPrice, setProductPrice] = useState('');
+  const [productStock, setProductStock] = useState('');
+  const [storeName, setStoreName] = useState('');
+  const [storeDescription, setStoreDescription] = useState('');
 
   const { 
-      reads: { useDisputeWindow, useAuctionContract, useMarketplace, useOwner: useEscrowOwner, useEscrowCounter, useEscrowById, useEscrowRaw, useBuyerEscrows, useSellerEscrows, useDisputeTimeRemaining, useIsDisputeWindowOpen, useEncryptedAmount },
-      writes: { createEscrow, releasePayment, refund, raiseDispute: raiseEscrowDispute, resolveDispute, emergencyWithdraw, setMarketplace, setAuctionContract, transferOwnership: transferEscrowOwnership },
-      tx: { hash: escrowTxHash, isPending: isEscrowTxPending, isSuccess: isEscrowTxSuccess }
-    } = useEscrow();
-  
-    const { 
-      reads: { useProductCount, useOrderCount, useProducts, useProduct, useOrder, useBuyerOrders, useSellerOrders, useSellerProducts, useIsSeller, useSeller, useEncryptedPrice, useEscrowContract, useOwner: useMarketplaceOwner, useEscrowToOrder },  
-      writes: { registerSeller, createProduct, updateProduct, removeProduct, createOrder, fulfillOrder, confirmOrder, cancelOrder, raiseDispute: raiseMarketplaceDispute, onDisputeResolved, setEscrowContract, transferOwnership: transferMarketplaceOwnership },
-      tx: { hash: marketplaceTxHash, isPending: isMarketplaceTxPending, isSuccess: isMarketplaceTxSuccess }
-    } = useMarketplaceHook();
+    reads: { useDisputeWindow, useAuctionContract, useMarketplace, useOwner: useEscrowOwner, useEscrowCounter, useEscrowById, useEscrowRaw, useBuyerEscrows, useSellerEscrows, useDisputeTimeRemaining, useIsDisputeWindowOpen, useEncryptedAmount },
+    writes: { createEscrow, releasePayment, refund, raiseDispute: raiseEscrowDispute, resolveDispute, emergencyWithdraw, setMarketplace, setAuctionContract, transferOwnership: transferEscrowOwnership },
+    tx: { hash: escrowTxHash, isPending: isEscrowTxPending, isSuccess: isEscrowTxSuccess }
+  } = useEscrow();
 
-  const productsTab = () => (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">My Products</h3>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
-          Add Product
+  const { 
+    reads: { useProductCount, useOrderCount, useProducts, useProduct, useOrder, useBuyerOrders, useSellerOrders, useSellerProducts, useIsSeller, useSeller, useEncryptedPrice, useEscrowContract, useOwner: useMarketplaceOwner, useEscrowToOrder },  
+    writes: { registerSeller, createProduct, updateProduct, removeProduct, createOrder, fulfillOrder, confirmOrder, cancelOrder, raiseDispute: raiseMarketplaceDispute, onDisputeResolved, setEscrowContract, transferOwnership: transferMarketplaceOwnership },
+    tx: { hash: marketplaceTxHash, isPending: isMarketplaceTxPending, isSuccess: isMarketplaceTxSuccess }
+  } = useMarketplaceHook();
+
+  const seller = useSeller(address as Address);
+
+  // Mock data for demonstration
+  const mockProducts = [
+    { id: '101', name: 'Laptop Pro', description: 'High-performance laptop', price: '1000000000000000000', stock: '10', isActive: true },
+    { id: '102', name: 'Wireless Mouse', description: 'Ergonomic wireless mouse', price: '150000000000000000', stock: '50', isActive: true },
+    { id: '103', name: 'USB-C Hub', description: 'Multi-port USB hub', price: '1500000000000000000', stock: '25', isActive: false },
+  ];
+
+  const mockOrders = [
+    { id: '1', productId: '101', quantity: '2', totalAmount: '2000000000000000000', status: 1, createdAt: Date.now() / 1000, buyer: '0x1111...2222' },
+    { id: '2', productId: '102', quantity: '1', totalAmount: '1500000000000000000', status: 2, createdAt: Date.now() / 1000, buyer: '0x5555...6666' },
+    { id: '3', productId: '103', quantity: '3', totalAmount: '4500000000000000000', status: 0, createdAt: Date.now() / 1000, buyer: '0x9999...0000' },
+  ];
+
+  const mockEscrows = [
+    { id: '1', buyer: '0x1111...2222', seller: address, amount: '2000000000000000000', status: 1, createdAt: Date.now() / 1000, disputeRaised: false },
+    { id: '2', buyer: '0x5555...6666', seller: address, amount: '1500000000000000000', status: 2, createdAt: Date.now() / 1000, disputeRaised: false },
+  ];
+
+  const handleCreateProduct = async () => {
+    setLoading(true);
+    try {
+      await createProduct({
+        name: productName,
+        description: productDescription,
+        price: BigInt(productPrice),
+        stock: BigInt(productStock),
+        ipfsHash: '',
+      });
+      setProductName('');
+      setProductDescription('');
+      setProductPrice('');
+      setProductStock('');
+    } catch (error) {
+      console.error('Error creating product:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFulfillOrder = async (orderId: string) => {
+    setLoading(true);
+    try {
+      await fulfillOrder(BigInt(orderId));
+    } catch (error) {
+      console.error('Error fulfilling order:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReleasePayment = async (escrowId: string) => {
+    setLoading(true);
+    try {
+      await releasePayment(BigInt(escrowId));
+    } catch (error) {
+      console.error('Error releasing payment:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegisterAsSeller = async () => {
+    setLoading(true);
+    try {
+      await registerSeller(storeName, storeDescription);
+    } catch (error) {
+      console.error('Error registering as seller:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderOverviewTab = () => (
+    <div className="space-y-6">
+      {/* Overview Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard title="My Products" value={mockProducts.length.toString()} icon="📦" />
+        <StatCard title="Total Orders" value={mockOrders.length.toString()} icon="🛒" />
+        <StatCard title="Escrow Count" value={mockEscrows.length.toString()} icon="🔄" />
+        <StatCard title="Store Status" value={isSeller ? 'Active' : 'Not Registered'} icon="🏪" />
+      </div>
+
+      {/* Recent Orders */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Orders</h3>
+        <div className="space-y-3">
+          {mockOrders.slice(0, 3).map((order) => (
+            <div key={order.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <span className="text-lg">🛒</span>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-900">Order #{order.id}</div>
+                  <div className="text-xs text-gray-500">Product ID: {order.productId} • Qty: {order.quantity}</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-medium text-gray-900">{formatEther(BigInt(BigInt(order.totalAmount)))} ETH</div>
+                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                  order.status === 0 ? 'bg-yellow-100 text-yellow-800' :
+                  order.status === 1 ? 'bg-blue-100 text-blue-800' :
+                  order.status === 2 ? 'bg-purple-100 text-purple-800' :
+                  order.status === 3 ? 'bg-green-100 text-green-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                  {order.status === 0 ? 'Pending' :
+                   order.status === 1 ? 'Paid' :
+                   order.status === 2 ? 'Fulfilled' :
+                   order.status === 3 ? 'Completed' : 'Cancelled'}
+                </span>
+              </div>
+            </div>
+          ))}
+          {mockOrders.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <span className="text-4xl mb-2 block">🛒</span>
+              <p>No orders yet</p>
+              <p className="text-sm">Orders will appear here when customers buy your products</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderProductsTab = () => (
+    <div className="space-y-6">
+      {/* Product Statistics */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Statistics</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-blue-50 rounded-lg p-4">
+            <p className="text-sm font-medium text-blue-600">Total Products</p>
+            <p className="text-2xl font-bold text-blue-900">{mockProducts.length}</p>
+          </div>
+          <div className="bg-green-50 rounded-lg p-4">
+            <p className="text-sm font-medium text-green-600">Active</p>
+            <p className="text-2xl font-bold text-green-900">{mockProducts.filter(p => p.isActive).length}</p>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-4">
+            <p className="text-sm font-medium text-purple-600">Total Stock</p>
+            <p className="text-2xl font-bold text-purple-900">
+              {mockProducts.reduce((sum, product) => sum + Number(product.stock), 0)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Add Product Form */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Product</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
+            <input
+              type="text"
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <input
+              type="text"
+              value={productDescription}
+              onChange={(e) => setProductDescription(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Price (ETH)</label>
+            <input
+              type="text"
+              value={productPrice}
+              onChange={(e) => setProductPrice(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Stock</label>
+            <input
+              type="text"
+              value={productStock}
+              onChange={(e) => setProductStock(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleCreateProduct}
+          disabled={loading || !productName || !productDescription || !productPrice || !productStock}
+          className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Creating...' : 'Create Product'}
         </button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {allProducts?.filter((product, index) =>
-              sellerProducts?.includes(BigInt(index + 1))
-            ).map((product, index) => (
-              <tr key={product.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                      <span className="text-lg">📦</span>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                      <div className="text-xs text-gray-500">ID: #{product.id}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {formatEther(product.price)} CELO
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {product.stock.toString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${product.isActive ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                    {product.isActive ? 'ACTIVE' : 'INACTIVE'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button className="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
-                  <button className="text-red-600 hover:text-red-900">Delete</button>
-                </td>
+
+      {/* Product List */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">My Products</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {mockProducts.map((product) => (
+                <tr key={product.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <span className="text-lg">📦</span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                        <div className="text-xs text-gray-500">ID: #{product.id}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {formatEther(BigInt(product.price))} ETH
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {product.stock.toString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      product.isActive ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {product.isActive ? 'ACTIVE' : 'INACTIVE'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button className="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
+                    <button className="text-red-600 hover:text-red-900">Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 
-  const ordersTab = () => (
-    <div>
-      <h3 className="text-lg font-semibold text-gray-900">My Orders</h3>
-      <div className="space-y-4">
-        {sellerOrders?.map((order) => (
-          <div key={order.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900">{order.id}</h4>
-                <p className="text-sm text-gray-600">{order.status}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-gray-900">{formatEther(order.total)} ETH</p>
-              </div>
+  const renderOrdersTab = () => (
+    <div className="space-y-6">
+      {/* Order Statistics */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Statistics</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-blue-50 rounded-lg p-4">
+            <p className="text-sm font-medium text-blue-600">Total Orders</p>
+            <p className="text-2xl font-bold text-blue-900">{mockOrders.length}</p>
+          </div>
+          <div className="bg-yellow-50 rounded-lg p-4">
+            <p className="text-sm font-medium text-yellow-600">Pending</p>
+            <p className="text-2xl font-bold text-yellow-900">{mockOrders.filter(o => o.status === 0).length}</p>
+          </div>
+          <div className="bg-green-50 rounded-lg p-4">
+            <p className="text-sm font-medium text-green-600">Completed</p>
+            <p className="text-2xl font-bold text-green-900">{mockOrders.filter(o => o.status === 3).length}</p>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-4">
+            <p className="text-sm font-medium text-purple-600">Total Revenue</p>
+            <p className="text-2xl font-bold text-purple-900">
+              {mockOrders.reduce((sum, order) => sum + Number(formatEther(BigInt(order.totalAmount))), 0).toFixed(4)} ETH
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Order List */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">My Orders</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Buyer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {mockOrders.map((order) => (
+                <tr key={order.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    #{order.id}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {mockProducts.find(p => p.id === order.productId)?.name || `Product ${order.productId}`}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {order.buyer}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {order.quantity}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatEther(BigInt(order.totalAmount))} ETH
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      order.status === 0 ? 'bg-yellow-100 text-yellow-800' :
+                      order.status === 1 ? 'bg-blue-100 text-blue-800' :
+                      order.status === 2 ? 'bg-purple-100 text-purple-800' :
+                      order.status === 3 ? 'bg-green-100 text-green-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {order.status === 0 ? 'Pending' :
+                       order.status === 1 ? 'Paid' :
+                       order.status === 2 ? 'Fulfilled' :
+                       order.status === 3 ? 'Completed' : 'Cancelled'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {order.status === 1 && (
+                      <button
+                        onClick={() => handleFulfillOrder(order.id)}
+                        disabled={loading}
+                        className="text-green-600 hover:text-green-900 mr-3"
+                      >
+                        Fulfill
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderEscrowsTab = () => (
+    <div className="space-y-6">
+      {/* Escrow Statistics */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Escrow Statistics</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-blue-50 rounded-lg p-4">
+            <p className="text-sm font-medium text-blue-600">Total Escrows</p>
+            <p className="text-2xl font-bold text-blue-900">{mockEscrows.length}</p>
+          </div>
+          <div className="bg-green-50 rounded-lg p-4">
+            <p className="text-sm font-medium text-green-600">Active</p>
+            <p className="text-2xl font-bold text-green-900">{mockEscrows.filter(e => e.status === 1).length}</p>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-4">
+            <p className="text-sm font-medium text-purple-600">Total Value</p>
+            <p className="text-2xl font-bold text-purple-900">
+              {mockEscrows.reduce((sum, escrow) => sum + Number(formatEther(BigInt(escrow.amount))), 0).toFixed(4)} ETH
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Escrow List */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">My Escrow Transactions</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Escrow ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Buyer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dispute</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {mockEscrows.map((escrow) => (
+                <tr key={escrow.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    #{escrow.id}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {escrow.buyer}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatEther(BigInt(escrow.amount))} ETH
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      escrow.status === 0 ? 'bg-yellow-100 text-yellow-800' :
+                      escrow.status === 1 ? 'bg-blue-100 text-blue-800' :
+                      escrow.status === 2 ? 'bg-red-100 text-red-800' :
+                      escrow.status === 3 ? 'bg-green-100 text-green-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {escrow.status === 0 ? 'Pending' :
+                       escrow.status === 1 ? 'Paid' :
+                       escrow.status === 2 ? 'Disputed' :
+                       escrow.status === 3 ? 'Resolved' : 'Refunded'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      escrow.disputeRaised ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                    }`}>
+                      {escrow.disputeRaised ? 'Raised' : 'None'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(Number(escrow.createdAt) * 1000).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {escrow.status === 1 && !escrow.disputeRaised && (
+                      <button
+                        onClick={() => handleReleasePayment(escrow.id)}
+                        disabled={loading}
+                        className="text-green-600 hover:text-green-900"
+                      >
+                        Release Payment
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSettingsTab = () => (
+    <div className="space-y-6">
+      {/* Store Registration */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Store Registration</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Store Name</label>
+            <input
+              type="text"
+              value={storeName}
+              onChange={(e) => setStoreName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <input
+              type="text"
+              value={storeDescription}
+              onChange={(e) => setStoreDescription(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleRegisterAsSeller}
+          disabled={loading || !storeName || !storeDescription}
+          className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Registering...' : 'Register as Seller'}
+        </button>
+      </div>
+
+      {/* Store Info */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Store Information</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Store Name</span>
+              <span className="text-sm font-medium text-gray-900">{seller.data?.[1] || 'Not Registered'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Store Description</span>
+              <span className="text-sm font-medium text-gray-900">{seller.data?.[2] || 'Not Registered'}</span>
             </div>
           </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const escrowsTab = () => (
-    <div>
-      <h3 className="text-lg font-semibold text-gray-900">My Escrows</h3>
-      <div className="space-y-4">
-        {sellerEscrows?.map((escrow) => (
-          <div key={escrow.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900">{escrow.id}</h4>
-                <p className="text-sm text-gray-600">{escrow.status}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-gray-900">{formatEther(escrow.amount)} ETH</p>
-              </div>
+          <div className="space-y-4">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Store Address</span>
+              <span className="text-sm font-medium text-gray-900">{seller.data?.[0] || 'No Address'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Registration Status</span>
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                isSeller ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+              }`}>
+                {isSeller ? 'Registered' : 'Not Registered'}
+              </span>
             </div>
           </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const storeTab = () => (
-    <div>
-      <h3 className="text-lg font-semibold text-gray-900">Store Info</h3>
-      <div className="space-y-2">
-        <div className="flex justify-between">
-          <span className="text-sm text-gray-600">Store Name</span>
-          <span className="text-sm font-medium text-gray-900">{seller?.storeName || 'Not Registered'}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-sm text-gray-600">Store Description</span>
-          <span className="text-sm font-medium text-gray-900">{seller?.storeDescription || 'Not Registered'}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-sm text-gray-600">Store URL</span>
-          <span className="text-sm font-medium text-gray-900">{seller?.address || 'No URL'}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-sm text-gray-600">Status</span>
-          <span className="text-sm font-medium text-gray-900">{isSeller ? 'Registered' : 'Not Registered'}</span>
         </div>
       </div>
     </div>
@@ -183,31 +568,24 @@ export function SellerDashboard({ activeTab,
   // Render content based on active tab
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'overview':
+        return renderOverviewTab();
       case 'products':
-        return productsTab();
+        return renderProductsTab();
       case 'orders':
-        return ordersTab();
+        return renderOrdersTab();
       case 'escrows':
-        return escrowsTab();
-      case 'store':
-        return storeTab();
+        return renderEscrowsTab();
+      case 'settings':
+        return renderSettingsTab();
       default:
-        return productsTab();
+        return renderOverviewTab();
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="My Products" value={sellerProducts?.length?.toString() || '0'} icon="📦" />
-        <StatCard title="Total Orders" value={sellerOrders?.length?.toString() || '0'} icon="🛒" />
-        <StatCard title="Escrow Count" value={sellerEscrows?.length?.toString() || '0'} icon="🔄" />
-        <StatCard title="Store Status" value={isSeller ? 'Active' : 'Not Registered'} icon="🏪" />
-      </div>
-      <div className="mt-6">
-        {renderTabContent()}
-      </div>
+      {renderTabContent()}
     </div>
   );
 }

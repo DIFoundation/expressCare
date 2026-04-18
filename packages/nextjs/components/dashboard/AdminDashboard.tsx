@@ -30,6 +30,7 @@ export function AdminDashboard({ activeTab }: AdminDashboardProps) {
   const escrow = useEscrowRaw(escrowId ? BigInt(escrowId) : BigInt(0));
   const isDisputeWindowOpen = useIsDisputeWindowOpen(escrowId ? BigInt(escrowId) : BigInt(0));
   const getDisputeTimeRemaining = useDisputeTimeRemaining(escrowId ? BigInt(escrowId) : BigInt(0));
+  console.log('time remaining', getDisputeTimeRemaining.data)
   
   // Global statistics
   const escrowCounter = useEscrowCounter();
@@ -53,8 +54,8 @@ export function AdminDashboard({ activeTab }: AdminDashboardProps) {
     if (!escrowId) return;
     setLoading(true);
     try {
-      // Escrow data is now available directly from the useEscrowData hook
-      console.log('Escrow data:', escrow);
+      // Escrow data is already available from the useEscrowRaw hook
+      console.log('Escrow data:', escrow.data);
     } catch (error) {
       console.error('Error fetching escrow:', error);
     } finally {
@@ -139,15 +140,21 @@ export function AdminDashboard({ activeTab }: AdminDashboardProps) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-blue-50 rounded-lg p-4">
             <p className="text-sm font-medium text-blue-600">Total Escrows</p>
-            <p className="text-2xl font-bold text-blue-900">{escrowCounter?.toString() || '0'}</p>
+            <p className="text-2xl font-bold text-blue-900">{escrowCounter.data?.toString() || '0'}</p>
           </div>
           <div className="bg-green-50 rounded-lg p-4">
             <p className="text-sm font-medium text-green-600">Dispute Window</p>
-            <p className="text-2xl font-bold text-green-900">{disputeWindow?.toString() || '0'}s</p>
+            <p className="text-2xl font-bold text-green-900">
+              {disputeWindow.data ? new Date(parseInt(disputeWindow.data.toString()) * 1000).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              }) : '00:00:00'}
+            </p>
           </div>
           <div className="bg-purple-50 rounded-lg p-4">
             <p className="text-sm font-medium text-purple-600">Marketplace Contract</p>
-            <p className="text-sm font-bold text-purple-900 truncate">{escrowMarketplace?.toString() || 'Not set'}</p>
+            <p className="text-sm font-bold text-purple-900 truncate">{escrowMarketplace?.data?.toString() || 'Not set'}</p>
           </div>
         </div>
       </div>
@@ -171,17 +178,23 @@ export function AdminDashboard({ activeTab }: AdminDashboardProps) {
             {loading ? 'Loading...' : 'Get Escrow'}
           </button>
         </div>
-        {escrow && (
+        {escrow.data && escrow.data[0] === 0n ? (
+          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-600">No escrow found with this ID</p>
+          </div>
+        ) : (
           <div className="mt-4 p-4 bg-gray-50 rounded-lg">
             <h4 className="font-semibold mb-2">Escrow Details</h4>
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><strong>ID:</strong> {escrow.id?.toString() || 'N/A'}</div>
-              <div><strong>Buyer:</strong> {escrow.buyer || 'N/A'}</div>
-              <div><strong>Seller:</strong> {escrow.seller || 'N/A'}</div>
-              <div><strong>Amount:</strong> {escrow.amount?.toString() || 'N/A'}</div>
-              <div><strong>Status:</strong> {escrow.status !== undefined ? EscrowStatus[escrow.status] : 'N/A'}</div>
-              <div><strong>Dispute Raised:</strong> {escrow.disputeRaised ? 'Yes' : 'No'}</div>
-              <div><strong>Created:</strong> {escrow.createdAt ? new Date(Number(escrow.createdAt) * 1000).toLocaleString() : 'N/A'}</div>
+              <div><strong>Escrow ID:</strong> {escrow?.data?.[0] || 'N/A'}</div>
+              <div><strong>Order ID:</strong> {escrow?.data?.[1] || 'N/A'}</div>
+              <div><strong>Buyer:</strong> {escrow?.data?.[2] || 'N/A'}</div>
+              <div><strong>Seller:</strong> {escrow?.data?.[3] || 'N/A'}</div>
+              <div><strong>Amount:</strong> {escrow?.data?.[4]?.toString() || 'N/A'}</div>
+              <div><strong>Status:</strong> {escrow?.data?.[7] !== undefined ? EscrowStatus[escrow?.data?.[7]] : 'N/A'}</div>
+              <div><strong>Dispute Raised:</strong> {escrow?.data?.[9] ? 'Yes' : 'No'}</div>
+              <div><strong>Created:</strong> {escrow?.data?.[8] ? new Date(Number(escrow?.data?.[10]) * 1000).toLocaleString() : 'N/A'}</div>
+              <div><strong>Resolver:</strong> {escrow?.data?.[10] || 'N/A'}</div>
             </div>
           </div>
         )}
@@ -333,11 +346,11 @@ export function AdminDashboard({ activeTab }: AdminDashboardProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-orange-50 rounded-lg p-4">
               <p className="text-sm font-medium text-orange-600">Total Orders</p>
-              <p className="text-2xl font-bold text-orange-900">{orderCounter?.toString() || '0'}</p>
+              <p className="text-2xl font-bold text-orange-900">{orderCounter.data?.toString() || '0'}</p>
             </div>
             <div className="bg-pink-50 rounded-lg p-4">
               <p className="text-sm font-medium text-pink-600">Total Products</p>
-              <p className="text-2xl font-bold text-pink-900">{productCounter?.toString() || '0'}</p>
+              <p className="text-2xl font-bold text-pink-900">{productCounter.data?.toString() || '0'}</p>
             </div>
           </div>
         </div>
@@ -393,11 +406,11 @@ export function AdminDashboard({ activeTab }: AdminDashboardProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-sm font-medium text-gray-600">Current Marketplace</p>
-              <p className="text-sm font-bold text-gray-900 truncate">{marketplaceEscrowContract?.toString() || 'Not set'}</p>
+              <p className="text-sm font-bold text-gray-900 truncate">{marketplaceEscrowContract.data?.toString() || 'Not set'}</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-sm font-medium text-gray-600">Current Owner</p>
-              <p className="text-sm font-bold text-gray-900 truncate">{marketplaceOwner?.toString() || 'Not set'}</p>
+              <p className="text-sm font-bold text-gray-900 truncate">{marketplaceOwner.data?.toString() || 'Not set'}</p>
             </div>
           </div>
         </div>

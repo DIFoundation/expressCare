@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { SearchParams } from '@/types';
+import { SearchParams } from '~~/types';
 
 interface SearchBarProps {
   searchParams: SearchParams;

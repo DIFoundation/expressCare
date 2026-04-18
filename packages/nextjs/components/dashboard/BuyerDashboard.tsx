@@ -54,7 +54,11 @@ export function BuyerDashboard({ activeTab }: BuyerDashboardProps) {
   // Get buyer-specific data
   const buyerOrders = useBuyerOrders(address || '0x');
   const buyerEscrows = useBuyerEscrows(address || '0x');
-  const allProducts = useProducts();
+  const productCount = useProductCount();
+
+  const productIds = Array.from({ length: Number(productCount) }, (_, i) => i + 1);
+
+  const allProducts = useProducts(productIds.map(id => BigInt(id)));
   const selectedProduct = useProduct(selectedProductId ? BigInt(selectedProductId) : BigInt(0));
 
   // Mock data for demonstration
@@ -126,7 +130,7 @@ export function BuyerDashboard({ activeTab }: BuyerDashboardProps) {
         <StatCard title="My Orders" value={mockOrders.length.toString()} icon="🛒" />
         <StatCard title="Escrow Transactions" value={mockEscrows.length.toString()} icon="🔄" />
         <StatCard title="Available Products" value={mockProducts.length.toString()} icon="📦" />
-        <StatCard title="Total Spent" value={`${mockOrders.reduce((sum, order) => sum + Number(formatEther(order.totalAmount)), 0).toFixed(4)} ETH`} icon="💰" />
+        <StatCard title="Total Spent" value={`${mockOrders.reduce((sum, order) => sum + Number(formatEther(BigInt(order.totalAmount))), 0).toFixed(4)} ETH`} icon="💰" />
       </div>
 
       {/* Recent Orders */}
@@ -145,7 +149,7 @@ export function BuyerDashboard({ activeTab }: BuyerDashboardProps) {
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-sm font-medium text-gray-900">{formatEther(order.totalAmount)} ETH</div>
+                <div className="text-sm font-medium text-gray-900">{formatEther(BigInt(order.totalAmount))} ETH</div>
                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                   order.status === 0 ? 'bg-yellow-100 text-yellow-800' :
                   order.status === 1 ? 'bg-blue-100 text-blue-800' :
@@ -194,7 +198,7 @@ export function BuyerDashboard({ activeTab }: BuyerDashboardProps) {
           <div className="bg-purple-50 rounded-lg p-4">
             <p className="text-sm font-medium text-purple-600">Total Spent</p>
             <p className="text-2xl font-bold text-purple-900">
-              {mockOrders.reduce((sum, order) => sum + Number(formatEther(order.totalAmount)), 0).toFixed(4)} ETH
+              {mockOrders.reduce((sum, order) => sum + Number(formatEther(BigInt(order.totalAmount))), 0).toFixed(4)} ETH
             </p>
           </div>
         </div>
@@ -232,7 +236,7 @@ export function BuyerDashboard({ activeTab }: BuyerDashboardProps) {
                     {order.quantity}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatEther(order.totalAmount)} ETH
+                    {formatEther(BigInt(order.totalAmount))} ETH
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -294,7 +298,7 @@ export function BuyerDashboard({ activeTab }: BuyerDashboardProps) {
           <div className="bg-purple-50 rounded-lg p-4">
             <p className="text-sm font-medium text-purple-600">Total Value</p>
             <p className="text-2xl font-bold text-purple-900">
-              {mockEscrows.reduce((sum, escrow) => sum + Number(formatEther(escrow.amount)), 0).toFixed(4)} ETH
+              {mockEscrows.reduce((sum, escrow) => sum + Number(formatEther(BigInt(escrow.amount))), 0).toFixed(4)} ETH
             </p>
           </div>
         </div>
@@ -326,7 +330,7 @@ export function BuyerDashboard({ activeTab }: BuyerDashboardProps) {
                     {escrow.seller}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatEther(escrow.amount)} ETH
+                    {formatEther(BigInt(escrow.amount))} ETH
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
